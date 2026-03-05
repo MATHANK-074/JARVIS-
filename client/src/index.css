@@ -186,6 +186,24 @@ body {
   transform: scale(1.1);
 }
 
+.btn-logout {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 0.5rem;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 68, 68, 0.15);
+  border-color: rgba(255, 68, 68, 0.3);
+  color: #ff4444;
+}
+
 .nav-badge {
   position: relative;
   cursor: pointer;
@@ -391,7 +409,7 @@ body {
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   position: relative;
-  overflow: hidden;
+  /* overflow: hidden; Removed to allow snooze dropdown to overflow */
 }
 
 .task-card::before {
@@ -414,6 +432,118 @@ body {
 
 .task-card.low::before {
   background: var(--low);
+}
+
+.task-actions button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.snooze-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.snooze-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: var(--surface);
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  z-index: 10;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-top: 0px;
+}
+
+.snooze-dropdown:hover .snooze-menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.snooze-menu span {
+  color: var(--text-primary);
+  padding: 10px 14px;
+  text-decoration: none;
+  display: block;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid var(--border);
+}
+
+.snooze-menu span:last-child {
+  border-bottom: none;
+}
+
+.snooze-menu span:hover {
+  background-color: var(--surface-hover);
+  color: var(--accent);
+}
+
+.task-snoozed-badge {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background-color: var(--surface-hover);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+}
+
+.custom-snooze-container {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.custom-snooze-input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.custom-snooze-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+.btn-confirm-snooze {
+  padding: 0.35rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  color: white;
+  transition: transform 0.2s;
+}
+
+.btn-confirm-snooze:hover {
+  transform: translateY(-1px);
+}
+
+.btn-cancel-snooze {
+  padding: 0.35rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.btn-cancel-snooze:hover {
+  color: var(--urgent);
 }
 
 .task-card:hover {
@@ -674,5 +804,62 @@ body {
 
   .dashboard {
     padding: 1rem;
+  }
+}
+
+/* ---------- WHATSAPP QR ---------- */
+.whatsapp-qr-container {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+  animation: fadeIn 0.5s ease;
+}
+
+.qr-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  max-width: 400px;
+}
+
+.qr-card h3 {
+  margin-bottom: 0.5rem;
+  color: #25D366;
+  /* WhatsApp Green */
+}
+
+.qr-card p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.qr-card img {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  width: 250px;
+  height: 250px;
+}
+
+.qr-status {
+  font-size: 0.8rem;
+  color: var(--accent-cyan);
+  font-style: italic;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

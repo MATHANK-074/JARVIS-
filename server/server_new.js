@@ -9,7 +9,6 @@ import configurePassport from "./config/googleOAuth.js";
 import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import { initWhatsApp } from "./services/whatsappService.js";
-import { startBackgroundSync } from "./services/syncManager.js";
 
 // Resolve absolute path to .env in project root
 const __filename = fileURLToPath(import.meta.url);
@@ -32,7 +31,6 @@ app.use(passport.initialize());
 
 // Initialize Services
 initWhatsApp();
-startBackgroundSync();
 
 // Routes
 app.use("/api/auth", authRoutes);

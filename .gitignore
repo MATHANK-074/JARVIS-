@@ -14,3 +14,7 @@ stdout_out.txt
 # IDE files
 .vscode/
 .idea/
+
+# WhatsApp Data
+.wwebjs_auth/
+.wwebjs_cache/

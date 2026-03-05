@@ -2,8 +2,8 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import Task from "../models/Task.js";
 import User from "../models/User.js";
-import { fetchRecentEmails } from "../services/gmailService.js";
-import { extractTaskFromEmail } from "../services/groqService.js";
+import { syncGmail, syncCalendar, syncWhatsApp } from "../services/syncService.js";
+import { getWhatsAppStatus } from "../services/whatsappService.js";
 
 const router = express.Router();
 
@@ -38,58 +38,34 @@ router.get("/sync-gmail", auth, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
         if (!user || !user.accessToken) {
-            return res.status(400).json({ message: "Google account not connected or tokens missing" });
+            return res.status(400).json({ message: "Google account not connected" });
         }
 
-        // 1. Fetch recent emails
-        console.log("📥 Sync Start: Fetching unread emails for", user.email);
-        const emails = await fetchRecentEmails(user.accessToken);
-        console.log(`📑 Found ${emails.length} unread emails snippets.`);
-
-        if (emails.length === 0) {
-            return res.json({ message: "No unread emails to sync.", tasks: [] });
-        }
-
-        // 2. Process each email with OpenAI in parallel
-        console.log("🤖 Processing emails with AI in parallel...");
-        const syncResults = await Promise.all(emails.map(async (email) => {
-            try {
-                // Check if task from this email already exists
-                const existing = await Task.findOne({ userId: req.userId, sourceId: email.id });
-                if (existing) return null;
-
-                const result = await extractTaskFromEmail(email);
-
-                if (result.isActionable) {
-                    return await Task.create({
-                        userId: req.userId,
-                        title: result.title,
-                        description: result.description,
-                        priority: result.priority,
-                        dueDate: result.dueDate,
-                        source: "gmail",
-                        sourceId: email.id,
-                    });
-                }
-            } catch (err) {
-                console.error(`❌ Error processing email ${email.id}:`, err);
-            }
-            return null;
-        }));
-
-        const newTasks = syncResults.filter(task => task !== null);
-        console.log(`✅ Sync complete. Created ${newTasks.length} new tasks.`);
-
+        const newTasks = await syncGmail(req.userId, user.accessToken);
         res.json({ message: `Sync complete. Found ${newTasks.length} new tasks.`, tasks: newTasks });
 
     } catch (error) {
         if (error.message === "GROQ_API_KEY_MISSING") {
-            return res.status(500).json({ message: "Groq API Key is missing. Please add GROQ_API_KEY to your .env file." });
+            return res.status(500).json({ message: "Groq API Key missing" });
         }
-        console.error("Sync Error:", error);
-        res.status(500).json({ message: "Synchronization failed" });
+        res.status(500).json({ message: "Gmail sync failed" });
     }
+});
 
+// @route   GET /api/tasks/sync-calendar
+// @desc    Sync tasks from Google Calendar
+router.get("/sync-calendar", auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user || !user.accessToken) {
+            return res.status(400).json({ message: "Google account not connected" });
+        }
+
+        const newTasks = await syncCalendar(req.userId, user.accessToken);
+        res.json({ message: `Sync complete. Found ${newTasks.length} new tasks.`, tasks: newTasks });
+    } catch (error) {
+        res.status(500).json({ message: "Calendar sync failed" });
+    }
 });
 
 // @route   POST /api/tasks
@@ -139,6 +115,28 @@ router.delete("/:id", auth, async (req, res) => {
         res.json({ message: "Task removed" });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
+    }
+});
+
+// @route   GET /api/tasks/whatsapp-status
+// @desc    Get WhatsApp connection status and QR code
+router.get("/whatsapp-status", auth, (req, res) => {
+    res.json(getWhatsAppStatus());
+});
+
+// @route   GET /api/tasks/sync-whatsapp
+// @desc    Sync tasks from WhatsApp unread messages
+router.get("/sync-whatsapp", auth, async (req, res) => {
+    try {
+        console.log("💬 Sync Start: Fetching WhatsApp unread for", req.userId);
+        const newTasks = await syncWhatsApp(req.userId);
+        res.json({ message: `Sync complete. Found ${newTasks.length} new tasks.`, tasks: newTasks });
+    } catch (error) {
+        if (error.message === "WHATSAPP_NOT_READY") {
+            return res.status(400).json({ message: "WhatsApp is not connected. Please scan the QR code first." });
+        }
+        console.error("WhatsApp Sync Error:", error);
+        res.status(500).json({ message: "WhatsApp synchronization failed" });
     }
 });
 

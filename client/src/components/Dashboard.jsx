@@ -5,13 +5,49 @@ const Dashboard = ({ user }) => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [syncingCalendar, setSyncingCalendar] = useState(false);
+    const [syncingWhatsApp, setSyncingWhatsApp] = useState(false);
+    const [whatsappStatus, setWhatsappStatus] = useState({ isReady: false, qrCode: null });
     const [search, setSearch] = useState("");
 
-    const fetchTasks = async () => {
+    const fetchTasks = async (isSilent = false) => {
         try {
             const res = await fetch("http://localhost:5000/api/tasks", { credentials: "include" });
             if (res.ok) {
                 const data = await res.json();
+
+                // If silent polling finds new tasks, show notification
+                if (isSilent && data.length > tasks.length) {
+                    const diff = data.length - tasks.length;
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("🤖 JARVIS: New Tasks Found!", {
+                            body: `I found ${diff} new task(s) for you.`,
+                            icon: "/logo.png"
+                        });
+                    }
+                }
+
+                // Check for upcoming deadlines (< 2 hours)
+                if ("Notification" in window && Notification.permission === "granted") {
+                    const now = new Date();
+                    const notifiedTasks = JSON.parse(localStorage.getItem("notifiedDeadlines") || "[]");
+
+                    data.forEach(task => {
+                        if (task.dueDate && task.status === "pending") {
+                            const hoursDiff = (new Date(task.dueDate) - now) / (1000 * 60 * 60);
+
+                            if (hoursDiff > 0 && hoursDiff <= 2 && !notifiedTasks.includes(task._id)) {
+                                new Notification("⏰ JARVIS: Deadline Alert!", {
+                                    body: `Task "${task.title}" is due in less than 2 hours!`,
+                                    icon: "/logo.png"
+                                });
+                                notifiedTasks.push(task._id);
+                            }
+                        }
+                    });
+                    localStorage.setItem("notifiedDeadlines", JSON.stringify(notifiedTasks));
+                }
+
                 setTasks(data);
             }
         } catch (error) {
@@ -21,9 +57,35 @@ const Dashboard = ({ user }) => {
         }
     };
 
+    const fetchWhatsAppStatus = async () => {
+        try {
+            const res = await fetch("http://localhost:5000/api/tasks/whatsapp-status", { credentials: "include" });
+            if (res.ok) {
+                const data = await res.json();
+                setWhatsappStatus(data);
+            }
+        } catch (err) {
+            console.log("WhatsApp status check failed");
+        }
+    };
+
     useEffect(() => {
+        // Request notification permission
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+        }
+
         fetchTasks();
-    }, []);
+        fetchWhatsAppStatus();
+
+        const statusInterval = setInterval(fetchWhatsAppStatus, 5000); // 5s for QR
+        const taskInterval = setInterval(() => fetchTasks(true), 120000); // 2m for auto-sync detection
+
+        return () => {
+            clearInterval(statusInterval);
+            clearInterval(taskInterval);
+        };
+    }, [tasks.length]); // Re-run if length changes to maintain correct silent check
 
     const filtered = tasks.filter((t) =>
         t.title.toLowerCase().includes(search.toLowerCase())
@@ -49,13 +111,13 @@ const Dashboard = ({ user }) => {
         }
     };
 
-    const handleSnooze = async (id) => {
+    const handleSnooze = async (id, snoozedUntilDate) => {
         try {
-            // Move to low priority in DB
+            // Move to low priority and set snoozedUntil in DB
             const res = await fetch(`http://localhost:5000/api/tasks/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ priority: "low" }),
+                body: JSON.stringify({ priority: "low", snoozedUntil: snoozedUntilDate }),
                 credentials: "include",
             });
             if (res.ok) {
@@ -82,6 +144,44 @@ const Dashboard = ({ user }) => {
             alert("Something went wrong during sync.");
         } finally {
             setSyncing(false);
+        }
+    };
+
+    const handleSyncCalendar = async () => {
+        setSyncingCalendar(true);
+        try {
+            const res = await fetch("http://localhost:5000/api/tasks/sync-calendar", { credentials: "include" });
+            const data = await res.json();
+            if (res.ok) {
+                alert(data.message);
+                fetchTasks();
+            } else {
+                alert("Calendar Sync failed: " + data.message);
+            }
+        } catch (error) {
+            console.error("Error syncing calendar:", error);
+            alert("Calendar Synchronization failed due to a network error.");
+        } finally {
+            setSyncingCalendar(false);
+        }
+    };
+
+    const handleSyncWhatsApp = async () => {
+        setSyncingWhatsApp(true);
+        try {
+            const res = await fetch("http://localhost:5000/api/tasks/sync-whatsapp", { credentials: "include" });
+            const data = await res.json();
+            if (res.ok) {
+                alert(data.message);
+                fetchTasks();
+            } else {
+                alert("WhatsApp Sync failed: " + data.message);
+            }
+        } catch (error) {
+            console.error("Error syncing WhatsApp:", error);
+            alert("WhatsApp Synchronization failed.");
+        } finally {
+            setSyncingWhatsApp(false);
         }
     };
 
@@ -145,13 +245,38 @@ const Dashboard = ({ user }) => {
                     <button
                         className={`btn-sync ${syncing ? 'loading' : ''}`}
                         onClick={handleSync}
-                        disabled={syncing}
+                        disabled={syncing || syncingCalendar}
                     >
                         {syncing ? "🔄 Syncing..." : "✉️ Sync Gmail"}
+                    </button>
+                    <button
+                        className={`btn-sync ${syncingCalendar ? 'loading' : ''}`}
+                        onClick={handleSyncCalendar}
+                        disabled={syncing || syncingCalendar || syncingWhatsApp}
+                    >
+                        {syncingCalendar ? "🔄 Syncing..." : "📅 Sync Calendar"}
+                    </button>
+                    <button
+                        className={`btn-sync ${syncingWhatsApp ? 'loading' : ''}`}
+                        onClick={handleSyncWhatsApp}
+                        disabled={syncing || syncingCalendar || syncingWhatsApp || !whatsappStatus.isReady}
+                    >
+                        {syncingWhatsApp ? "🔄 Syncing..." : "💬 Sync WhatsApp"}
                     </button>
                     <button className="btn-add">＋ Add Task</button>
                 </div>
             </div>
+
+            {!whatsappStatus.isReady && whatsappStatus.qrCode && (
+                <div className="whatsapp-qr-container">
+                    <div className="qr-card">
+                        <h3>💬 Connect WhatsApp</h3>
+                        <p>Scan this QR code with your phone to sync messages.</p>
+                        <img src={whatsappStatus.qrCode} alt="WhatsApp QR Code" />
+                        <div className="qr-status">Waiting for scan...</div>
+                    </div>
+                </div>
+            )}
 
             <div className="kanban-board">
                 {["urgent", "medium", "low"].map((p) => (

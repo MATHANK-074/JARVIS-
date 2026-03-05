@@ -1,6 +1,6 @@
 import React from "react";
 
-const Navbar = ({ user }) => {
+const Navbar = ({ user, onLogout }) => {
     return (
         <nav className="navbar">
             <div className="navbar-brand">
@@ -16,6 +16,9 @@ const Navbar = ({ user }) => {
                 <div className="nav-avatar" title={user?.name || "User"}>
                     {user?.name ? user.name[0].toUpperCase() : "U"}
                 </div>
+                <button className="btn-logout" onClick={onLogout}>
+                    Logout
+                </button>
             </div>
         </nav>
     );

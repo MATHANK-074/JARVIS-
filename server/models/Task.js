@@ -35,6 +35,10 @@ const TaskSchema = new mongoose.Schema(
         },
         sourceId: {
             type: String, // ID of the email or message if applicable
+        },
+        snoozedUntil: {
+            type: Date,
+            default: null,
         }
     },
     { timestamps: true }

@@ -26,6 +26,18 @@ function App() {
       });
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      setUser(null);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   if (loading) {
     return <div className="loading-screen">Loading Assistant...</div>;
   }
@@ -42,7 +54,7 @@ function App() {
           element={
             user ? (
               <>
-                <Navbar user={user} />
+                <Navbar user={user} onLogout={handleLogout} />
                 <Dashboard user={user} />
               </>
             ) : (
